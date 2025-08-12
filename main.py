@@ -1,23 +1,30 @@
+import os
 import asyncio
 import logging
 import re
 import requests
-import os
-from dotenv import load_dotenv
+import signal
 from telethon.sync import TelegramClient, events
+from telethon.sessions import StringSession
 from colorama import Fore, Style
+from dotenv import load_dotenv
 
-# Load environment variables
+# ------------------- LOAD ENV -------------------
 load_dotenv()
 
-# ------------------- CONFIG -------------------
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
-session_name = os.getenv("SESSION_NAME")
-group_username = os.getenv("GROUP_USERNAME")
-bot_username = os.getenv("BOT_USERNAME")
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-model_name = os.getenv("MODEL_NAME")
+model_name = os.getenv("MODEL_NAME", "deepseek/deepseek-chat-v3-0324:free")
+
+# Fixed group and bot usernames
+group_username = "FUNToken_OfficialChat"
+bot_username = "fun_message_scoring_bot"
+
+# ------------------- SESSION -------------------
+SESSION_FOLDER = 'sessions'
+os.makedirs(SESSION_FOLDER, exist_ok=True)
+session_name = os.path.join(SESSION_FOLDER, "fun_quiz_session")
 
 # ------------------- LOGGING -------------------
 def log(msg, icon=">>>"):
@@ -27,7 +34,7 @@ def log(msg, icon=">>>"):
 def get_ai_answer(question, options):
     prompt = f"""
 You are a quiz solving AI. You will be given a question and options.
-Only reply with the exact correct option letter (A, B, C, D) or the exact option text.
+Only reply with the exact correct option letter (A, B, C, D, E) or the exact option text.
 
 Question:
 {question}
@@ -58,9 +65,10 @@ Options:
         log(f"AI error: {e}", "❌")
         return ""
 
-# ------------------- MAIN BOT -------------------
-async def main():
-    client = TelegramClient(session_name, api_id, api_hash)
+# ------------------- BOT LOGIC -------------------
+client = TelegramClient(session_name, api_id, api_hash)
+
+async def run_bot():
     await client.start()
     log("Connected successfully", "🔌")
 
@@ -116,6 +124,37 @@ async def main():
     log("Listening for quizzes...", ">>>")
     await client.run_until_disconnected()
 
-# ------------------- RUN -------------------
+# ------------------- SESSION CREATOR -------------------
+async def create_session():
+    print(Fore.YELLOW + "📱 Login to your Telegram account" + Style.RESET_ALL)
+    async with TelegramClient(session_name, api_id, api_hash) as client:
+        await client.start()
+        print(Fore.GREEN + "✅ Session created and saved!" + Style.RESET_ALL)
+
+# ------------------- GRACEFUL SHUTDOWN -------------------
+def shutdown(loop):
+    print("\nGracefully shutting down...")
+    loop.create_task(client.disconnect())
+
+# ------------------- MENU -------------------
 if __name__ == "__main__":
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: shutdown(loop))
+
+    print(Fore.MAGENTA + "\n=== FUN QUIZ BOT MENU ===" + Style.RESET_ALL)
+    print("1️⃣ Create Session (Login with Telegram)")
+    print("2️⃣ Run Bot")
+    choice = input(Fore.CYAN + "\nSelect an option (1 or 2): " + Style.RESET_ALL)
+
+    if choice == "1":
+        asyncio.run(create_session())
+    elif choice == "2":
+        try:
+            asyncio.run(run_bot())
+        except KeyboardInterrupt:
+            print("Bot stopped by user.")
+            loop.run_until_complete(client.disconnect())
+            loop.close()
+    else:
+        print(Fore.RED + "❌ Invalid choice. Please select 1 or 2." + Style.RESET_ALL)
