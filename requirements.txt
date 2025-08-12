@@ -1,4 +1,4 @@
 telethon
-requests
 colorama
+requests
 python-dotenv
