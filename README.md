@@ -1,140 +1,62 @@
-README.md Example for Your Quiz Bot
+# FUN QUIZ BOT
 
-# Fun Quiz Bot
+## BOT FEATURE
 
-This Telegram bot automatically detects quiz questions in the [FUNToken Official Chat](https://t.me/FUNToken_OfficialChat) and answers them using AI (OpenRouter GPT models).
+- Auto Detect Quiz in FUNToken Official Group
+- Auto Extract Question & Options
+- Auto Send Question to AI for Correct Answer
+- Auto Send Correct Option in Group
+- Runs 24/7 Without Manual Input
 
----
+## COOMANDS
 
-## Features
+### 1. INSTALL PYTHON & GIT
 
-- Listens to quiz messages in the specified Telegram group
-- Sends questions to OpenRouter GPT AI for answers
-- Automatically clicks the correct answer button
-- Colorful and informative console logs
-
----
-
-## Setup Instructions
-
-Follow these steps carefully to set up and run the bot on your system.
-
----
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/yourrepo.git
-cd yourrepo
+pkg install python
 
 
----
+pkg install git
 
-2. Create .env file
 
-Copy the example environment file and fill in your own credentials:
+### 2. CLONE REPOSITORY
 
-cp .env.example .env
-
-Open .env in any text editor and update the following variables with your own values:
-
-Variable	Description
-
-API_ID	Your Telegram API ID (integer)
-API_HASH	Your Telegram API hash (string)
-SESSION_NAME	Name for your Telethon session file (string)
-GROUP_USERNAME	Telegram group username where quizzes appear
-BOT_USERNAME	Telegram bot username used for scoring (if any)
-OPENROUTER_API_KEY	Your OpenRouter API key to access GPT models
-MODEL_NAME	AI model name (default: openai/gpt-3.5-turbo)
+git clone https://github.com/dopezayn/Fun-bot.git
 
 
 
----
-
-3. How to get your Telegram API ID and API Hash
-
-1. Go to my.telegram.org
-
-
-2. Log in with your Telegram phone number
-
-
-3. Click on "API Development Tools"
-
-
-4. Create a new application if you don't have one
-
-
-5. Copy your api_id and api_hash from there and paste them into your .env file
+cd Fun-bot
 
 
 
-
----
-
-4. How to get your OpenRouter API Key
-
-1. Visit https://openrouter.ai
-
-
-2. Sign up for a free account (or log in if you already have one)
-
-
-3. Go to your dashboard or API keys section
-
-
-4. Create a new API key
-
-
-5. Copy the key and paste it into your .env file under OPENROUTER_API_KEY
-
-
-
-
----
-
-5. Install dependencies
-
-Make sure you have Python 3.8+ installed. Then install required packages:
+### 3. INSTALL REQUIREMENTS
 
 pip install -r requirements.txt
 
-If requirements.txt is not available, install manually:
 
-pip install telethon requests colorama python-dotenv
 
+### 4. CREATE .env FILE
+
+cp .env.example .env
+
+
+
+nano .env
+
+
+
+### 5. ADD YOUR DETAILS IN `.env` FILE
+
+API_ID=your_telegram_api_id API_HASH=your_telegram_api_hash OPENROUTER_API_KEY=your_openrouter_api_key GROUP_USERNAME=FUNToken_OfficialChat BOT_USERNAME=fun_message_scoring_bot MODEL_NAME=deepseek/deepseek-chat-v3-0324:free
 
 ---
 
-6. Run the bot
+### 6. START THE BOT
 
 python main.py
 
-The bot will start and connect to Telegram. It will listen to quizzes and answer automatically.
-
-
----
-
-7. Important Notes
-
-Do NOT share your .env file publicly — it contains sensitive API keys.
-
-If you want to reset your session, delete the .session file created with the name you provided in SESSION_NAME.
-
-Keep your API keys secret and secure.
-
-For any issues, raise an issue on the GitHub repo or contact the maintainer.
-
-
+- First time run → **Option 1** select to create Telegram session  
+- Next time runs → **Option 2** select to start bot  
 
 ---
 
-License
-
-MIT License
-
-
----
-
-Made with ❤️ by [Your Name or Username]
+⚠ **Disclaimer:** This bot is for educational purposes only. Use at your own risk.
