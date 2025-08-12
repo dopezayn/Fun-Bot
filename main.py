@@ -9,6 +9,29 @@ from telethon.sessions import StringSession
 from colorama import Fore, Style
 from dotenv import load_dotenv
 
+# ------------------- CLEAR CONSOLE -------------------
+os.system('cls' if os.name == 'nt' else 'clear')
+
+# ------------------- GRADIENT FUNCTION -------------------
+def print_gradient(text):
+    colors = [Fore.RED, Fore.MAGENTA, Fore.CYAN, Fore.BLUE]
+    for i, char in enumerate(text):
+        color = colors[i % len(colors)]
+        print(color + char, end="")
+    print(Style.RESET_ALL)
+
+# ------------------- ASCII ART WITH GRADIENT -------------------
+ascii_art = r"""
+███████╗██╗   ██╗███╗   ██╗     ██████╗ ██╗   ██╗██╗███████╗
+██╔════╝██║   ██║████╗  ██║    ██╔═══██╗██║   ██║██║██╔════╝
+███████╗██║   ██║██╔██╗ ██║    ██║   ██║██║   ██║██║█████╗  
+╚════██║██║   ██║██║╚██╗██║    ██║   ██║██║   ██║██║██╔══╝  
+███████║╚██████╔╝██║ ╚████║    ╚██████╔╝╚██████╔╝██║███████╗
+╚══════╝ ╚═════╝ ╚═╝  ╚═══╝     ╚═════╝  ╚═════╝ ╚═╝╚══════╝
+"""
+print_gradient(ascii_art)
+print_gradient("                 Made by A K H I I\n")
+
 # ------------------- LOAD ENV -------------------
 load_dotenv()
 
