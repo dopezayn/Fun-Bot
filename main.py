@@ -131,22 +131,24 @@ async def run_bot():
             answer = get_ai_answer(question, options).strip()
             log(f"AI Answer: {answer}", "🤖")
 
-            # ---------------- MATCHING LOGIC UPDATED ----------------
+            # ---------------- MATCHING LOGIC ----------------
             selected = None
+            flat_buttons = [btn for row in buttons for btn in row]
 
             # 1️⃣ Letter-based match (A–E or a–e)
             letter_match = re.match(r'^\s*([A-Ea-e])', answer)
             if letter_match:
                 letter = letter_match.group(1).upper()
                 index = ord(letter) - ord('A')
-                flat_buttons = [btn for row in buttons for btn in row]
                 if 0 <= index < len(flat_buttons):
                     selected = flat_buttons[index]
 
-            # 2️⃣ Text-based fallback match
+            # 2️⃣ Text-based robust match
             if not selected:
-                for btn in [btn for row in buttons for btn in row]:
-                    if btn.text.lower().strip() in answer.lower() or answer.lower() in btn.text.lower().strip():
+                ans_clean = re.sub(r'[^\w\s]', '', answer.lower())
+                for btn in flat_buttons:
+                    btn_clean = re.sub(r'[^\w\s]', '', btn.text.lower())
+                    if ans_clean in btn_clean or btn_clean in ans_clean:
                         selected = btn
                         break
 
