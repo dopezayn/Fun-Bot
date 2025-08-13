@@ -132,31 +132,35 @@ async def run_bot():
             log(f"AI Answer: {answer}", "🤖")
 
             # ---------------- MATCHING LOGIC UPDATED ----------------
-            selected = None
+selected = None
+flat_buttons = [btn for row in buttons for btn in row]
 
-            # 1️⃣ Letter-based match (A–E or a–e)
-            letter_match = re.match(r'^\s*([A-Ea-e])', answer)
-            if letter_match:
-                letter = letter_match.group(1).upper()
-                index = ord(letter) - ord('A')
-                flat_buttons = [btn for row in buttons for btn in row]
-                if 0 <= index < len(flat_buttons):
-                    selected = flat_buttons[index]
+# 1️⃣ Clean AI answer
+ai_answer_clean = answer.strip().lower()
 
-            # 2️⃣ Text-based fallback match
-            if not selected:
-                for btn in [btn for row in buttons for btn in row]:
-                    if btn.text.lower().strip() in answer.lower() or answer.lower() in btn.text.lower().strip():
-                        selected = btn
-                        break
+# 2️⃣ Exact/partial text match (case-insensitive, ignore spaces)
+for btn in flat_buttons:
+    btn_clean = btn.text.strip().lower()
+    if ai_answer_clean == btn_clean or ai_answer_clean in btn_clean or btn_clean in ai_answer_clean:
+        selected = btn
+        break
 
-            # 3️⃣ Click answer if found
-            if selected:
-                log(f"Clicking answer: {selected.text}", "✅")
-                await event.click(text=selected.text)
-            else:
-                log("Correct answer not found in options", "❌")
-            # ---------------------------------------------------------
+# 3️⃣ If no text match, try letter match (A, B, C, D, E)
+if not selected:
+    letter_match = re.match(r'^\s*([A-Ea-e])', answer)
+    if letter_match:
+        letter = letter_match.group(1).upper()
+        index = ord(letter) - ord('A')
+        if 0 <= index < len(flat_buttons):
+            selected = flat_buttons[index]
+
+# 4️⃣ Final check & click
+if selected:
+    log(f"Clicking answer: {selected.text}", "✅")
+    await event.click(text=selected.text)
+else:
+    log("❌ Correct answer not found in options (even after text/letter match)", "⚠️")
+# ---------------------------------------------------------
 
     log("Listening for quizzes...", ">>>")
     await client.run_until_disconnected()
