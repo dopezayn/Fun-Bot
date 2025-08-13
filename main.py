@@ -34,15 +34,12 @@ print_gradient("                 Made by A K H I I\n")
 
 # ------------------- LOAD ENV -------------------
 load_dotenv()
-
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 model_name = os.getenv("MODEL_NAME", "deepseek/deepseek-chat-v3-0324:free")
 
-# Fixed group and bot usernames
 group_username = "FUNToken_OfficialChat"
-bot_username = "fun_message_scoring_bot"
 
 # ------------------- SESSION -------------------
 SESSION_FOLDER = 'sessions'
@@ -82,7 +79,17 @@ Options:
 
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=json_data)
-        answer = response.json()["choices"][0]["message"]["content"].strip()
+        resp_json = response.json()
+
+        # ✅ FIX FOR DEEPSEEK FREE MODEL
+        if "choices" in resp_json:
+            answer = resp_json["choices"][0]["message"]["content"].strip()
+        elif "output_text" in resp_json:
+            answer = resp_json["output_text"].strip()
+        elif "content" in resp_json:
+            answer = resp_json["content"].strip()
+        else:
+            answer = ""
         return answer
     except Exception as e:
         log(f"AI error: {e}", "❌")
