@@ -46,7 +46,7 @@ nano .env
 
 ### 5. ADD YOUR DETAILS IN `.env` FILE
 
-API_ID=your_telegram_api_id API_HASH=your_telegram_api_hash OPENROUTER_API_KEY=your_openrouter_api_key GROUP_USERNAME=FUNToken_OfficialChat BOT_USERNAME=fun_message_scoring_bot MODEL_NAME=deepseek/deepseek-chat-v3-0324:free
+API_ID=your_telegram_api_id API_HASH=your_telegram_api_hash OPENROUTER_API_KEY=your_openrouter_api_key
 
 ---
 
