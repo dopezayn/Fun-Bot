@@ -128,21 +128,35 @@ async def run_bot():
             log(f"Question: {question}", "🧠")
             log("Sending to AI...", "📡")
 
-            answer = get_ai_answer(question, options).lower()
+            answer = get_ai_answer(question, options).strip()
             log(f"AI Answer: {answer}", "🤖")
 
-            # Match AI answer with options
+            # ---------------- MATCHING LOGIC UPDATED ----------------
             selected = None
-            for btn in [btn for row in buttons for btn in row]:
-                if btn.text.lower() in answer or answer in btn.text.lower():
-                    selected = btn
-                    break
 
+            # 1️⃣ Letter-based match (A–E or a–e)
+            letter_match = re.match(r'^\s*([A-Ea-e])', answer)
+            if letter_match:
+                letter = letter_match.group(1).upper()
+                index = ord(letter) - ord('A')
+                flat_buttons = [btn for row in buttons for btn in row]
+                if 0 <= index < len(flat_buttons):
+                    selected = flat_buttons[index]
+
+            # 2️⃣ Text-based fallback match
+            if not selected:
+                for btn in [btn for row in buttons for btn in row]:
+                    if btn.text.lower().strip() in answer.lower() or answer.lower() in btn.text.lower().strip():
+                        selected = btn
+                        break
+
+            # 3️⃣ Click answer if found
             if selected:
                 log(f"Clicking answer: {selected.text}", "✅")
                 await event.click(text=selected.text)
             else:
                 log("Correct answer not found in options", "❌")
+            # ---------------------------------------------------------
 
     log("Listening for quizzes...", ">>>")
     await client.run_until_disconnected()
