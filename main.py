@@ -34,12 +34,15 @@ print_gradient("                 Made by A K H I I\n")
 
 # ------------------- LOAD ENV -------------------
 load_dotenv()
+
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 model_name = os.getenv("MODEL_NAME", "deepseek/deepseek-chat-v3-0324:free")
 
+# Fixed group and bot usernames
 group_username = "FUNToken_OfficialChat"
+bot_username = "fun_message_scoring_bot"
 
 # ------------------- SESSION -------------------
 SESSION_FOLDER = 'sessions'
@@ -79,17 +82,7 @@ Options:
 
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=json_data)
-        resp_json = response.json()
-
-        # ✅ FIX FOR DEEPSEEK FREE MODEL
-        if "choices" in resp_json:
-            answer = resp_json["choices"][0]["message"]["content"].strip()
-        elif "output_text" in resp_json:
-            answer = resp_json["output_text"].strip()
-        elif "content" in resp_json:
-            answer = resp_json["content"].strip()
-        else:
-            answer = ""
+        answer = response.json()["choices"][0]["message"]["content"].strip()
         return answer
     except Exception as e:
         log(f"AI error: {e}", "❌")
@@ -135,37 +128,21 @@ async def run_bot():
             log(f"Question: {question}", "🧠")
             log("Sending to AI...", "📡")
 
-            answer = get_ai_answer(question, options).strip()
+            answer = get_ai_answer(question, options).lower()
             log(f"AI Answer: {answer}", "🤖")
 
-            # ---------------- MATCHING LOGIC ----------------
+            # Match AI answer with options
             selected = None
-            flat_buttons = [btn for row in buttons for btn in row]
+            for btn in [btn for row in buttons for btn in row]:
+                if btn.text.lower() in answer or answer in btn.text.lower():
+                    selected = btn
+                    break
 
-            # 1️⃣ Letter-based match (A–E or a–e)
-            letter_match = re.match(r'^\s*([A-Ea-e])', answer)
-            if letter_match:
-                letter = letter_match.group(1).upper()
-                index = ord(letter) - ord('A')
-                if 0 <= index < len(flat_buttons):
-                    selected = flat_buttons[index]
-
-            # 2️⃣ Text-based robust match
-            if not selected:
-                ans_clean = re.sub(r'[^\w\s]', '', answer.lower())
-                for btn in flat_buttons:
-                    btn_clean = re.sub(r'[^\w\s]', '', btn.text.lower())
-                    if ans_clean in btn_clean or btn_clean in ans_clean:
-                        selected = btn
-                        break
-
-            # 3️⃣ Click answer if found
             if selected:
                 log(f"Clicking answer: {selected.text}", "✅")
                 await event.click(text=selected.text)
             else:
                 log("Correct answer not found in options", "❌")
-            # ---------------------------------------------------------
 
     log("Listening for quizzes...", ">>>")
     await client.run_until_disconnected()
