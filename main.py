@@ -4,6 +4,7 @@ import logging
 import re  
 import requests  
 import signal  
+from datetime import datetime
 from telethon.sync import TelegramClient, events  
 from telethon.sessions import StringSession  
 from colorama import Fore, Style, init  
@@ -56,22 +57,19 @@ session_name = os.path.join(SESSION_FOLDER, "fun_quiz_session")
 def log(msg, icon=">>>"):  
     print(Fore.CYAN + f"{icon} {msg}" + Style.RESET_ALL)  
 
+def log_with_time(message, icon="ℹ️", color=Fore.WHITE):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{color}[{timestamp}] {icon} {message}{Style.RESET_ALL}")
+
 # ------------------- TEXT NORMALIZERS -------------------
 def clean_text(s: str) -> str:
-    # Lowercase, strip spaces, remove punctuation-like chars for robust matching
     s = s.lower().strip()
     s = re.sub(r"[\s\-_:;.,!()`\"'”“’•·\[\]{}<>]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
 def extract_letter_token(s: str) -> str | None:
-    """
-    Try to extract option letter A-E from strings like:
-    'A', '(a)', 'option A', 'the answer is: e) virtual reality', '🅐', 'A.', 'A)'
-    """
     s_low = s.lower()
-
-    # Map fancy emoji letters to A-E
     emoji_map = {
         "🅐": "a", "🄐": "a",
         "🅑": "b", "🄑": "b",
@@ -82,38 +80,25 @@ def extract_letter_token(s: str) -> str | None:
     for em, letter in emoji_map.items():
         if em in s:
             return letter.upper()
-
-    # Common patterns: e.g. "answer: e", "(c)", "option d", "choose B", "A.", "B)"
     m = re.search(r"\b(?:option|ans(?:wer)?:?|choose|select)?\s*[\(\[]?\s*([a-e])\s*[\)\].:]?", s_low)
     if m:
         return m.group(1).upper()
-
-    # Also check if line starts with letter format like "a) text" or "a . text"
     m2 = re.match(r"^\s*([a-e])\s*[\)\].:]", s_low)
     if m2:
         return m2.group(1).upper()
-
     return None
 
 def strip_option_prefix(option_text: str) -> tuple[str, str]:
-    """
-    Return (letter_if_any, cleaned_option_text_without_letter_prefix)
-    Detects prefixes like 'A) ', 'A. ', '🅐  ', etc.
-    """
     raw = option_text.strip()
-    # Emoji letters → letter
     emoji_to_letter = {"🅐": "A", "🅑": "B", "🅒": "C", "🅓": "D", "🅔": "E"}
     if len(raw) > 0 and raw[0] in emoji_to_letter:
         return emoji_to_letter[raw[0]], raw[1:].strip()
-
-    # Alphabetic letters like "A) ..." / "A. ..." / "(A) ..."
     m = re.match(r"^\s*[\(\[]?\s*([A-Ea-e])\s*[\)\].:]\s*(.+)$", raw)
     if m:
         return m.group(1).upper(), m.group(2).strip()
-
     return "", raw
 
-# ------------------- AI FUNCTION -------------------  
+# ------------------- AI FUNCTION (UPDATED WITH RETRY & TIMESTAMP) -------------------  
 def get_ai_answer(question, options):  
     prompt = f"""  
 You are a quiz solving AI. You will be given a question and options.  
@@ -141,49 +126,47 @@ Options:
         ]  
     }  
 
-    try:  
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=json_data, timeout=25)  
-        data = response.json()
-        answer = data["choices"][0]["message"]["content"].strip()
-        return answer  
-    except Exception as e:  
-        log(f"AI error: {e}", "❌")  
-        return ""  
+    for attempt in range(1, 4):  
+        try:  
+            log_with_time(f"Attempt {attempt}: Sending request to AI...", "📡", Fore.CYAN)
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=json_data, timeout=25)  
+            data = response.json()
+            if "choices" in data and len(data["choices"]) > 0:
+                answer = data["choices"][0]["message"]["content"].strip()
+                log_with_time("Success: AI response received!", "✅", Fore.GREEN)
+                return answer  
+            else:
+                log_with_time(f"AI returned invalid response: {data}", "❌", Fore.RED)
+                return ""  
+        except requests.exceptions.RequestException as e:  
+            log_with_time(f"Network error: {e} (Retrying...)", "⚠️", Fore.RED)  
+        except Exception as e:  
+            log_with_time(f"AI error: {e}", "❌", Fore.RED)  
+
+    log_with_time("Failed to get AI response after 3 attempts.", "❌", Fore.RED)
+    return ""
 
 # ------------------- BOT LOGIC -------------------
 client = TelegramClient(session_name, api_id, api_hash)  
 
 def choose_button_from_ai(ai_answer: str, buttons) -> str | None:
-    """
-    Returns the exact button text to click, or None
-    """
     if not ai_answer:
         return None
-
-    # Prepare options (flatten buttons)
     flat_btns = [btn for row in buttons for btn in row]
     options = [btn.text.strip() for btn in flat_btns]
-
-    # 1) If AI provided a letter → map to index
     letter = extract_letter_token(ai_answer)
     if letter:
         idx = ord(letter) - ord('A')
         if 0 <= idx < len(options):
             return options[idx]
-
-    # 2) Try to match option text (robust cleaning)
     ai_clean = clean_text(ai_answer)
     cleaned_options = []
     for opt in options:
         prefix_letter, body = strip_option_prefix(opt)
         cleaned_options.append((opt, clean_text(body)))
-
-    # Exact contains or equality match (clean)
     for original_opt, cleaned_body in cleaned_options:
         if cleaned_body and (cleaned_body in ai_clean or ai_clean in cleaned_body):
             return original_opt
-
-    # Last resort: loose token overlap
     ai_tokens = set(ai_clean.split())
     best_score, best_opt = 0, None
     for original_opt, cleaned_body in cleaned_options:
@@ -193,7 +176,6 @@ def choose_button_from_ai(ai_answer: str, buttons) -> str | None:
             best_score, best_opt = score, original_opt
     if best_opt:
         return best_opt
-
     return None
 
 async def run_bot():  
@@ -212,7 +194,6 @@ async def run_bot():
                 log("No buttons found", "⚠️")  
                 return  
 
-            # Extract question  
             lines = message.split("\n")  
             question = ""  
             for line in lines:  
@@ -224,7 +205,6 @@ async def run_bot():
                 log("Question not found", "❌")  
                 return  
 
-            # Extract options  
             options = [btn.text.strip() for row in buttons for btn in row]  
             if not options:  
                 log("Options not found", "❌")  
@@ -236,7 +216,6 @@ async def run_bot():
             ai_raw = get_ai_answer(question, options).strip()
             log(f"AI Answer: {ai_raw}", "🤖")  
 
-            # Decide which button to click
             target_text = choose_button_from_ai(ai_raw, buttons)
 
             if target_text:
