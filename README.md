@@ -18,6 +18,8 @@ pkg install python
 pkg install git
 
 
+pkg install nano
+
 ### 2. CLONE REPOSITORY
 
 git clone https://github.com/dopezayn/Fun-bot.git
