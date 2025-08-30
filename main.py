@@ -241,44 +241,73 @@ Options:
     log_with_time("Failed to get AI response after all attempts.", "❌", Fore.RED)
     return ""
 
-# ------------------- BOT LOGIC -------------------
-# Use StringSession instead of file-based session to avoid database lock issues
-session_string = None
-session_file = f"{session_name}.session"
-if os.path.exists(session_file):
-    try:
-        with open(session_file, 'r') as f:
-            session_string = f.read().strip()
-    except:
-        pass
+# ------------------- SESSION MANAGEMENT -------------------
+def load_string_session():
+    """Load session string from file"""
+    session_file = f"{session_name}.txt"
+    if os.path.exists(session_file):
+        try:
+            with open(session_file, 'r') as f:
+                return f.read().strip()
+        except:
+            pass
+    return None
 
+def save_string_session(session_str):
+    """Save session string to file"""
+    session_file = f"{session_name}.txt"
+    with open(session_file, 'w') as f:
+        f.write(session_str)
+
+# Remove old SQLite session files to prevent conflicts
+def cleanup_old_sessions():
+    """Remove old SQLite session files that cause locking issues"""
+    session_files = [
+        f"{session_name}.session",
+        f"{session_name}.session-journal",
+        f"{session_name}.session-shm",
+        f"{session_name}.session-wal"
+    ]
+    
+    for file_path in session_files:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                log_with_time(f"Removed old session file: {file_path}", "🗑️", Fore.YELLOW)
+            except:
+                pass
+
+# Clean up old session files before starting
+cleanup_old_sessions()
+
+# Initialize client with StringSession
+session_string = load_string_session()
 if session_string:
     client = TelegramClient(StringSession(session_string), api_id, api_hash)
 else:
-    client = TelegramClient(session_name, api_id, api_hash)
+    # Use memory session temporarily until we get a string session
+    client = TelegramClient(None, api_id, api_hash)
 
-async def safe_start_client(max_retries=5):
-    for attempt in range(max_retries):
-        try:
-            await client.start()
-            # Save session as string for future use
-            if not session_string:
-                session_str = client.session.save()
-                with open(session_file, 'w') as f:
-                    f.write(session_str)
-            return True
-        except sqlite3.OperationalError as e:
-            if "database is locked" in str(e) and attempt < max_retries - 1:
-                wait_time = 2 ** attempt
-                log_with_time(f"Database locked, waiting {wait_time} seconds...", "⚠️", Fore.YELLOW)
-                await asyncio.sleep(wait_time)
-            else:
-                raise
-    return False
+async def safe_start_client(max_retries=3):
+    """Safely start the client without database locking issues"""
+    try:
+        await client.start()
+        
+        # Save session as string for future use
+        if not session_string:
+            session_str = client.session.save()
+            save_string_session(session_str)
+            log_with_time("Session saved as string", "💾", Fore.GREEN)
+            
+        return True
+        
+    except Exception as e:
+        log_with_time(f"Error starting client: {e}", "❌", Fore.RED)
+        return False
 
 async def run_bot():  
     if not await safe_start_client():
-        log_with_time("Failed to start client after multiple attempts", "❌", Fore.RED)
+        log_with_time("Failed to start client", "❌", Fore.RED)
         return
         
     log("Connected successfully", "🔌")  
@@ -332,25 +361,25 @@ async def run_bot():
 # ------------------- SESSION CREATOR -------------------  
 async def create_session():  
     print(Fore.YELLOW + "📱 Login to your Telegram account" + Style.RESET_ALL)  
-    async with TelegramClient(session_name, api_id, api_hash) as temp_client:  
+    
+    # Clean up old sessions first
+    cleanup_old_sessions()
+    
+    async with TelegramClient(None, api_id, api_hash) as temp_client:  
         await temp_client.start()  
         # Save session as string
         session_str = temp_client.session.save()
-        with open(f"{session_name}.session", 'w') as f:
-            f.write(session_str)
-        print(Fore.GREEN + "✅ Session created and saved!" + Style.RESET_ALL)  
+        save_string_session(session_str)
+        print(Fore.GREEN + "✅ Session created and saved as string!" + Style.RESET_ALL)  
 
 # ------------------- GRACEFUL SHUTDOWN -------------------  
 def shutdown(loop):  
     print("\nGracefully shutting down...")  
-    loop.create_task(client.disconnect())  
+    if client.is_connected():
+        loop.create_task(client.disconnect())  
 
 # ------------------- MENU -------------------  
 if __name__ == "__main__":  
-    loop = asyncio.get_event_loop()  
-    for sig in (signal.SIGINT, signal.SIGTERM):  
-        loop.add_signal_handler(sig, lambda: shutdown(loop))  
-
     print(Fore.MAGENTA + "\n=== FUN QUIZ BOT MENU ===" + Style.RESET_ALL)  
     print("1️⃣ Create Session (Login with Telegram)")  
     print("2️⃣ Run Bot")  
@@ -363,7 +392,9 @@ if __name__ == "__main__":
             asyncio.run(run_bot())  
         except KeyboardInterrupt:  
             print("Bot stopped by user.")  
-            loop.run_until_complete(client.disconnect())  
-            loop.close()  
+            if client.is_connected():
+                asyncio.run(client.disconnect())
+        except Exception as e:
+            print(f"Error: {e}")
     else:  
         print(Fore.RED + "❌ Invalid choice. Please select 1 or 2." + Style.RESET_ALL)
