@@ -255,9 +255,19 @@ def load_string_session():
 
 def save_string_session(session_str):
     """Save session string to file"""
+    if session_str is None:
+        log_with_time("Session string is None, cannot save!", "❌", Fore.RED)
+        return False
+        
     session_file = f"{session_name}.txt"
-    with open(session_file, 'w') as f:
-        f.write(session_str)
+    try:
+        with open(session_file, 'w') as f:
+            f.write(session_str)
+        log_with_time("Session saved successfully", "💾", Fore.GREEN)
+        return True
+    except Exception as e:
+        log_with_time(f"Error saving session: {e}", "❌", Fore.RED)
+        return False
 
 # Remove old SQLite session files to prevent conflicts
 def cleanup_old_sessions():
@@ -284,9 +294,11 @@ cleanup_old_sessions()
 session_string = load_string_session()
 if session_string:
     client = TelegramClient(StringSession(session_string), api_id, api_hash)
+    log_with_time("Loaded existing session", "🔌", Fore.GREEN)
 else:
     # Use memory session temporarily until we get a string session
-    client = TelegramClient(None, api_id, api_hash)
+    client = TelegramClient(StringSession(), api_id, api_hash)
+    log_with_time("Created new session", "🆕", Fore.YELLOW)
 
 async def safe_start_client(max_retries=3):
     """Safely start the client without database locking issues"""
@@ -294,10 +306,12 @@ async def safe_start_client(max_retries=3):
         await client.start()
         
         # Save session as string for future use
-        if not session_string:
-            session_str = client.session.save()
+        session_str = client.session.save()
+        if session_str:
             save_string_session(session_str)
             log_with_time("Session saved as string", "💾", Fore.GREEN)
+        else:
+            log_with_time("Failed to get session string", "❌", Fore.RED)
             
         return True
         
@@ -365,18 +379,34 @@ async def create_session():
     # Clean up old sessions first
     cleanup_old_sessions()
     
-    async with TelegramClient(None, api_id, api_hash) as temp_client:  
-        await temp_client.start()  
-        # Save session as string
-        session_str = temp_client.session.save()
-        save_string_session(session_str)
-        print(Fore.GREEN + "✅ Session created and saved as string!" + Style.RESET_ALL)  
+    # Create a new client with StringSession
+    new_client = TelegramClient(StringSession(), api_id, api_hash)
+    
+    try:
+        await new_client.start()
+        
+        # Get and save the session string
+        session_str = new_client.session.save()
+        if session_str:
+            if save_string_session(session_str):
+                print(Fore.GREEN + "✅ Session created and saved successfully!" + Style.RESET_ALL)
+                print(Fore.CYAN + f"Session string saved to: {session_name}.txt" + Style.RESET_ALL)
+            else:
+                print(Fore.RED + "❌ Failed to save session!" + Style.RESET_ALL)
+        else:
+            print(Fore.RED + "❌ Failed to get session string!" + Style.RESET_ALL)
+            
+    except Exception as e:
+        print(Fore.RED + f"❌ Error creating session: {e}" + Style.RESET_ALL)
+    finally:
+        if new_client.is_connected():
+            await new_client.disconnect()
 
 # ------------------- GRACEFUL SHUTDOWN -------------------  
-def shutdown(loop):  
+def shutdown():  
     print("\nGracefully shutting down...")  
     if client.is_connected():
-        loop.create_task(client.disconnect())  
+        asyncio.run(client.disconnect())
 
 # ------------------- MENU -------------------  
 if __name__ == "__main__":  
